@@ -5,14 +5,28 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 
-import '../auth/presentation/user_notifier.dart';
+// شيل الاستيراد ده
+// import '../auth/presentation/user_notifier.dart';
+
+// وهنضيف استيراد الـ userProvider من مكانه الصحيح
+import 'package:anime_slayer/features/auth/presentation/user_provider.dart'; // هتضيفه بعدين
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final user = ref.watch(userProvider).userData ?? UserModel.empty();
+    // استخدم الـ userProvider من مكانه الجديد
+    final user = ref.watch(userProvider).userData;
+    
+    // لو مفيش بيانات، اعرض loading أو رسالة
+    if (user == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Profile')),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Profile'),
@@ -69,8 +83,6 @@ class ProfileScreen extends ConsumerWidget {
             user.name,
             style: const TextStyle(fontSize: 20),
           ),
-
-          //name
           20.verticalSpace,
         ],
       ),
