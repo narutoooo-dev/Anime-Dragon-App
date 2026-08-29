@@ -1,4 +1,8 @@
-import 'package:anime_slayer/features/auth/presentation/user_notifier.dart';
+// احذف السطر ده
+// import 'package:anime_slayer/features/auth/presentation/user_notifier.dart';
+
+// واستبدله بـ:
+import 'package:anime_slayer/features/auth/data/auth_repository.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
