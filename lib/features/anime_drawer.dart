@@ -12,7 +12,11 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
-import 'auth/presentation/user_notifier.dart';
+// احذف السطر ده
+// import 'package:anime_slayer/features/auth/presentation/user_notifier.dart';
+
+// واستبدله بـ:
+import 'package:anime_slayer/features/auth/data/auth_repository.dart';
 
 enum DrawerOption {
   home,
