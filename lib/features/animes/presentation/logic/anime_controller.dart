@@ -2,7 +2,11 @@
 import 'dart:async';
 import 'dart:developer';
 import 'package:anime_slayer/features/animes/presentation/search_option.dart';
-import 'package:anime_slayer/features/auth/presentation/user_notifier.dart';
+// احذف السطر ده
+// import 'package:anime_slayer/features/auth/presentation/user_notifier.dart';
+
+// واستبدله بـ:
+import 'package:anime_slayer/features/auth/data/auth_repository.dart';
 import 'package:anime_slayer/features/favorites/favorite_controller.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:anime_slayer/features/animes/data/animes_repository.dart';
