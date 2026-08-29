@@ -1,158 +1,146 @@
-import 'dart:convert';
-import 'package:anime_slayer/features/auth/data/auth_repository.dart';
-import 'package:anime_slayer/utils/custom_logger.dart';
+import 'package:anime_slayer/features/auth/presentation/user_notifier.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../../providers/token_controller.dart';
+import '../../../providers/local_auth_data_source.dart';
+import 'requests/login_request_model.dart';
+import 'remote_auth_data_source.dart';
 
-final userProvider = StateNotifierProvider<UserNotifier, UserState>(
-  (ref) {
-    final token = ref.watch(tokenProvider);
+final authRepositoryProvider = Provider<AuthRepository>((ref) {
+  return AuthRepository(
+    remoteDataSource: ref.watch(remoteAuthDataSourceProvider),
+    localDataSource: ref.watch(localAuthDataSourceProvider),
+  );
+});
 
-    return UserNotifier(ref.watch(authRepositoryProvider), token);
-  },
-);
+class AuthRepository {
+  final RemoteAuthDataSource remoteDataSource;
+  final LocalAuthDataSource localDataSource;
 
-class UserNotifier extends StateNotifier<UserState> {
-  UserNotifier(this.authRepository, this.token)
-      : super(const UserState.initial()) {
-    if (token == null) {
-      clearUser();
-    } else {
-      _getUser();
+  AuthRepository({
+    required this.remoteDataSource,
+    required this.localDataSource,
+  });
+
+  // دالة تسجيل الدخول المعدلة (محلياً)
+  Future<Response> login({required LoginRequestModel data}) async {
+    try {
+      // محاكاة تسجيل الدخول بدون سيرفر
+      if (data.email.isNotEmpty && data.password.isNotEmpty) {
+        // حفظ التوكن محلياً (توكن وهمي)
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('access_token', 'fake_token_12345');
+        await prefs.setString('user_email', data.email);
+        await prefs.setString('user_name', data.email.split('@')[0]); // اسم مؤقت من الإيميل
+        await prefs.setString('user_avatar', 'https://i.pravatar.cc/150?img=1');
+        await prefs.setBool('is_logged_in', true);
+        
+        print('✅ تم تسجيل الدخول محلياً: ${data.email}');
+        
+        // إرجاع استجابة وهمية
+        return Response(
+          data: {'access_token': 'fake_token_12345'},
+          statusCode: 200,
+          requestOptions: RequestOptions(path: ''),
+        );
+      } else {
+        throw Exception('الإيميل أو كلمة المرور فارغة');
+      }
+    } catch (e) {
+      print('❌ خطأ في تسجيل الدخول المحلي: $e');
+      throw Exception('فشل في تسجيل الدخول: $e');
     }
   }
 
-  final String? token;
-  final AuthRepository authRepository;
-
-  _getUser() async {
-    final user = await authRepository.fetchUserInfo();
-    AppLogger.logInfo('UserNotifier user: $user');
-    state = state.copyWith(user: user);
+  // دالة التسجيل المعدلة (محلياً)
+  Future<Response> register({required RegisterRequestModel data}) async {
+    try {
+      // محاكاة التسجيل بدون سيرفر
+      if (data.email.isNotEmpty && data.password.isNotEmpty && data.username.isNotEmpty) {
+        // حفظ التوكن محلياً
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('access_token', 'fake_token_12345');
+        await prefs.setString('user_email', data.email);
+        await prefs.setString('user_name', data.username);
+        
+        // حفظ مسار الصورة (اختياري)
+        if (data.avatar != null) {
+          await prefs.setString('user_avatar', data.avatar!.path);
+        } else {
+          await prefs.setString('user_avatar', 'https://i.pravatar.cc/150?img=1');
+        }
+        
+        await prefs.setBool('is_logged_in', true);
+        
+        print('✅ تم التسجيل محلياً: ${data.email}');
+        
+        // إرجاع استجابة وهمية
+        return Response(
+          data: {'access_token': 'fake_token_12345'},
+          statusCode: 200,
+          requestOptions: RequestOptions(path: ''),
+        );
+      } else {
+        throw Exception('جميع الحقول مطلوبة');
+      }
+    } catch (e) {
+      print('❌ خطأ في التسجيل المحلي: $e');
+      throw Exception('فشل في التسجيل: $e');
+    }
   }
 
-  // // set User
-  // void setUser(UserModel user) {
-  //   state = state.copyWith(user: user);
-  // }
-
-  // clear User
-  void clearUser() async {
-    state = const UserState.initial();
-    await authRepository.logout();
-  }
-}
-
-class UserState {
-  final UserModel? userData;
-
-  const UserState({this.userData});
-
-  const UserState.initial() : userData = null;
-
-  get isLoggedIn => userData != null;
-
-  UserState copyWith({
-    UserModel? user,
-  }) {
-    return UserState(
-      userData: user ?? userData,
-    );
+  // دالة تسجيل الخروج
+  Future<void> logout() async {
+    try {
+      localDataSource.clearToken();
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('user_email');
+      await prefs.remove('user_name');
+      await prefs.remove('user_avatar');
+      await prefs.setBool('is_logged_in', false);
+      print('✅ تم تسجيل الخروج');
+    } catch (e) {
+      print('❌ خطأ في تسجيل الخروج: $e');
+      rethrow;
+    }
   }
 
-  Map<String, dynamic> toMap() {
-    return <String, dynamic>{
-      'user': userData?.toMap(),
-    };
+  // جلب التوكن
+  String? getToken() {
+    try {
+      final token = localDataSource.getToken();
+      return token;
+    } catch (e) {
+      print('❌ خطأ في جلب التوكن: $e');
+      return null;
+    }
   }
 
-  factory UserState.fromMap(Map<String, dynamic> map) {
-    return UserState(
-      userData: UserModel.fromMap(map['user'] as Map<String, dynamic>),
-    );
-  }
-
-  String toJson() => json.encode(toMap());
-
-  factory UserState.fromJson(String source) =>
-      UserState.fromMap(json.decode(source) as Map<String, dynamic>);
-
-  @override
-  String toString() => 'UserState(user: $userData)';
-
-  @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) return true;
-
-    return other is UserState && other.userData == userData;
-  }
-
-  @override
-  int get hashCode => userData.hashCode;
-}
-
-class UserModel {
-  final String email;
-  final String avatar;
-  final String name;
-  UserModel({
-    required this.email,
-    required this.avatar,
-    required this.name,
-  });
-
-  UserModel copyWith({
-    String? email,
-    String? avatar,
-    String? name,
-  }) {
-    return UserModel(
-      email: email ?? this.email,
-      avatar: avatar ?? this.avatar,
-      name: name ?? this.name,
-    );
-  }
-
-  factory UserModel.empty() {
-    return UserModel(email: '', avatar: '', name: '');
-  }
-
-  Map<String, dynamic> toMap() {
-    return <String, dynamic>{
-      'email': email,
-      'avatar': avatar,
-      'name': name,
-    };
-  }
-
-  factory UserModel.fromMap(Map<String, dynamic> map) {
-    return UserModel(
-      email: map['email'] as String,
-      avatar: map['avatar'] as String,
-      name: map['name'] as String,
-    );
-  }
-
-  String toJson() => json.encode(toMap());
-
-  factory UserModel.fromJson(String source) =>
-      UserModel.fromMap(json.decode(source) as Map<String, dynamic>);
-
-  @override
-  String toString() {
-    return 'UserModel( email: $email, avatar: $avatar, name: $name)';
-  }
-
-  @override
-  bool operator ==(covariant UserModel other) {
-    if (identical(this, other)) return true;
-
-    return other.email == email && other.avatar == avatar && other.name == name;
-  }
-
-  @override
-  int get hashCode {
-    return email.hashCode ^ avatar.hashCode ^ name.hashCode;
+  // جلب معلومات المستخدم
+  Future<UserModel> fetchUserInfo() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final email = prefs.getString('user_email') ?? 'admin@anime.com';
+      final name = prefs.getString('user_name') ?? 'الأدمن';
+      final avatar = prefs.getString('user_avatar') ?? 'https://i.pravatar.cc/150?img=1';
+      
+      print('✅ تم جلب بيانات المستخدم: $email');
+      
+      // استخدام الباني الصحيح لـ UserModel
+      return UserModel(
+        email: email,
+        name: name,
+        avatar: avatar,
+      );
+    } catch (e) {
+      print('❌ خطأ في جلب بيانات المستخدم: $e');
+      // إرجاع مستخدم افتراضي في حالة الخطأ
+      return UserModel(
+        email: 'admin@anime.com',
+        name: 'الأدمن',
+        avatar: 'https://i.pravatar.cc/150?img=1',
+      );
+    }
   }
 }
